@@ -1,4 +1,4 @@
-# Kick Chat Enhancer
+# Better Kick Chat
 
 A Chrome extension that enhances the chat experience on Kick.com with additional features and improvements.
 
@@ -25,8 +25,8 @@ A Chrome extension that enhances the chat experience on Kick.com with additional
 
 1. Clone the repository:
 ```bash
-git clone [your-repo-url]
-cd kick-chat-enhancer
+git clone https://github.com/isolmaz/betterkickchat.git
+cd betterkickchat
 ```
 
 2. Install dependencies:
@@ -36,14 +36,21 @@ npm install
 yarn install
 ```
 
-3. Start development server:
+3. Set up environment variables:
+   - Copy `.env.example` to `.env`
+   - Fill in your Kick.com OAuth credentials
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Start development server:
 ```bash
 npm run dev
 # or
 yarn dev
 ```
 
-4. Build the extension:
+5. Build the extension:
 ```bash
 npm run build
 # or
@@ -56,21 +63,41 @@ yarn build
 2. Enable "Developer mode" in the top right
 3. Click "Load unpacked" and select the `dist` directory
 
+### OAuth Setup
+
+1. Create a Kick.com developer application at https://kick.com/developers
+2. Set the OAuth callback URL to:
+   ```
+   https://[your-github-username].github.io/betterkickchat/callback
+   ```
+3. Copy the client ID and secret to your `.env` file
+
 ## Project Structure
 
 ```
-kick-chat-enhancer/
+betterkickchat/
 ├── src/
 │   ├── background/     # Background service worker
 │   ├── content/        # Content scripts
 │   ├── popup/          # Extension popup
 │   ├── components/     # Shared React components
+│   ├── services/       # API and service layer
+│   ├── hooks/          # React hooks
 │   ├── utils/          # Utility functions
 │   └── types/          # TypeScript type definitions
-├── assets/            # Static assets and icons
+├── docs/              # GitHub Pages (OAuth callback)
 ├── public/            # Public assets
-└── tests/            # Test files
+└── scripts/          # Build and utility scripts
 ```
+
+## Security
+
+This extension uses:
+- PKCE OAuth flow for secure authentication
+- Secure storage for tokens
+- CSRF protection
+- Content Security Policy
+- No sensitive data in public code
 
 ## Contributing
 
