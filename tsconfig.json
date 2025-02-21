@@ -15,7 +15,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["chrome", "node", "jest"],
+    "types": ["chrome", "node"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

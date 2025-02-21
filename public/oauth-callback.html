@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authorization Callback</title>
+</head>
+<body>
+    <h1>Authorization Complete</h1>
+    <p>You can close this window now.</p>
+    <script>
+        // Handle the OAuth 2.0 callback
+        const queryParams = new URLSearchParams(window.location.search);
+        const code = queryParams.get('code');
+        
+        if (code) {
+            // Send the authorization code to the extension's background script
+            chrome.runtime.sendMessage({ type: 'OAUTH_CALLBACK', code }, (response) => {
+                // Close the window once the code is processed
+                window.close();
+            });
+        } else {
+            // Handle error case
+            const error = queryParams.get('error');
+            document.body.innerHTML = `<h1>Authorization Error</h1><p>Error: ${error}</p>`;
+        }
+    </script>
+</body>
+</html> 

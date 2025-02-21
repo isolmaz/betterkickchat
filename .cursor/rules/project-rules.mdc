@@ -1,7 +1,0 @@
----
-description: Project Rules includes
-globs: 
----
-
-# Project Rules
-- Follow theese files for informations. [app-flow.md](mdc:instructions/app-flow.md) [backend-structure.md](mdc:instructions/backend-structure.md) [frontend-guidelines.md](mdc:instructions/frontend-guidelines.md) [project-requirements.md](mdc:instructions/project-requirements.md) [project-rules.mdc](mdc:.cursor/rules/project-rules.mdc) [tech-stack.md](mdc:instructions/tech-stack.md)

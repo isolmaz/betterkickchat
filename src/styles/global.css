@@ -1,0 +1,83 @@
+/* Global styles */
+:root {
+  --primary-color: #00CCBB;
+  --secondary-color: #9146FF;
+  --background-color: #121212;
+  --surface-color: #1E1E1E;
+  --text-color: #FFFFFF;
+  --text-secondary: #B0B0B0;
+  --border-color: #333333;
+  --highlight-color: 255, 214, 0;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+/* Chat message styles */
+.enhanced-message {
+  padding: 4px 8px;
+  margin: 2px 0;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.enhanced-message:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.enhanced-message.highlighted {
+  background-color: rgba(var(--highlight-color), 0.2);
+}
+
+.enhanced-message .username {
+  font-weight: 600;
+}
+
+.enhanced-message .badge {
+  margin-right: 4px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+/* Compact mode */
+.compact-mode .enhanced-message {
+  padding: 2px 4px;
+  margin: 1px 0;
+}
+
+/* Theme support */
+[data-theme="dark"] {
+  --background-color: #121212;
+  --surface-color: #1E1E1E;
+  --text-color: #FFFFFF;
+  --text-secondary: #B0B0B0;
+}
+
+[data-theme="light"] {
+  --background-color: #FFFFFF;
+  --surface-color: #F5F5F5;
+  --text-color: #000000;
+  --text-secondary: #666666;
+}
+
+/* Popup styles */
+.popup-container {
+  width: 400px;
+  height: 500px;
+  overflow: hidden;
+}
+
+/* Material UI overrides */
+.MuiTab-root {
+  min-width: 100px !important;
+}
+
+.MuiSnackbar-root {
+  bottom: 16px !important;
+} 
