@@ -70,6 +70,22 @@
     .hidden {
       display: none;
     }
+
+    .debug {
+      margin-top: 1rem;
+      padding: 1rem;
+      background-color: #2d2d2d;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      text-align: left;
+      display: none;
+    }
+
+    .show-debug .debug {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -80,12 +96,41 @@
     <button id="retryButton" class="retry-button hidden" onclick="retryAuth()">
       Try Again
     </button>
+    <div id="debug" class="debug"></div>
   </div>
 
   <script>
     let retryCount = 0;
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 1000;
+    const EXTENSION_ID = 'ibiejdaaejaihgaefdbcbfeafcffddcf';
+
+    function log(message, data = null) {
+      const debug = document.getElementById('debug');
+      const timestamp = new Date().toISOString();
+      let logMessage = `[${timestamp}] ${message}`;
+      if (data) {
+        logMessage += '\n' + JSON.stringify(data, null, 2);
+      }
+      debug.textContent += logMessage + '\n\n';
+      console.log(message, data);
+    }
+
+    function showError(title, message, error = null) {
+      const statusElement = document.getElementById('status');
+      const messageElement = document.getElementById('message');
+      const retryButton = document.getElementById('retryButton');
+      
+      statusElement.textContent = title;
+      statusElement.classList.add('error');
+      messageElement.textContent = message;
+      retryButton.classList.remove('hidden');
+      
+      if (error) {
+        log('Error:', error);
+        document.body.classList.add('show-debug');
+      }
+    }
 
     function retryAuth() {
       const button = document.getElementById('retryButton');
@@ -106,48 +151,64 @@
       const code = urlParams.get('code');
       const state = urlParams.get('state');
       const error = urlParams.get('error');
-      const statusElement = document.getElementById('status');
-      const messageElement = document.getElementById('message');
-      const retryButton = document.getElementById('retryButton');
+
+      log('URL Parameters:', {
+        code: code ? '***' : null,
+        state: state ? '***' : null,
+        error: error
+      });
 
       if (error) {
-        statusElement.textContent = 'Authentication Failed';
-        statusElement.classList.add('error');
-        messageElement.textContent = 'There was an error during authentication: ' + error;
-        retryButton.classList.remove('hidden');
+        showError(
+          'Authentication Failed',
+          'There was an error during authentication: ' + error,
+          { error }
+        );
         return;
       }
 
       if (!code || !state) {
-        statusElement.textContent = 'Invalid Request';
-        statusElement.classList.add('error');
-        messageElement.textContent = 'Missing required authentication parameters.';
-        retryButton.classList.remove('hidden');
+        showError(
+          'Invalid Request',
+          'Missing required authentication parameters.',
+          { code: !!code, state: !!state }
+        );
         return;
       }
 
+      log('Sending message to extension:', { type: 'OAUTH_CALLBACK' });
+
       // Send message to our extension
-      chrome.runtime.sendMessage('ibiejdaaejaihgaefdbcbfeafcffddcf', {
+      chrome.runtime.sendMessage(EXTENSION_ID, {
         type: 'OAUTH_CALLBACK',
         code,
         state,
         source: 'github_pages'
       }, (response) => {
         if (chrome.runtime.lastError) {
-          console.error('Chrome runtime error:', chrome.runtime.lastError);
+          log('Chrome runtime error:', chrome.runtime.lastError);
+          
           if (retryCount < MAX_RETRIES) {
             retryCount++;
+            log(`Retrying (${retryCount}/${MAX_RETRIES})...`);
             setTimeout(handleAuth, RETRY_DELAY);
             return;
           }
-          statusElement.textContent = 'Connection Error';
-          statusElement.classList.add('error');
-          messageElement.textContent = 'Could not connect to the extension. Please make sure the extension is installed and try again.';
-          retryButton.classList.remove('hidden');
+          
+          showError(
+            'Connection Error',
+            'Could not connect to the extension. Please make sure the extension is installed and try again.',
+            chrome.runtime.lastError
+          );
           return;
         }
 
+        log('Extension response:', response);
+
         if (response?.success) {
+          const statusElement = document.getElementById('status');
+          const messageElement = document.getElementById('message');
+          
           statusElement.textContent = 'Authentication Successful';
           statusElement.classList.add('success');
           messageElement.textContent = 'You can now close this window and return to Kick.com.';
@@ -157,10 +218,11 @@
             window.close();
           }, 3000);
         } else {
-          statusElement.textContent = 'Authentication Failed';
-          statusElement.classList.add('error');
-          messageElement.textContent = 'Failed to complete authentication. Please try again.';
-          retryButton.classList.remove('hidden');
+          showError(
+            'Authentication Failed',
+            'Failed to complete authentication. Please try again.',
+            response
+          );
         }
       });
     }
