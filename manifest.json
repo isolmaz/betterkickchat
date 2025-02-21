@@ -7,7 +7,8 @@
   "permissions": [
     "storage",
     "tabs",
-    "webNavigation"
+    "webNavigation",
+    "identity"
   ],
   "host_permissions": [
     "https://kick.com/*",
@@ -36,16 +37,19 @@
     {
       "matches": ["https://kick.com/*"],
       "js": ["content.js"],
-      "css": ["styles.css"]
+      "css": ["styles/chat.css", "styles/global.css"]
     }
   ],
   "web_accessible_resources": [{
     "resources": [
       "assets/*",
-      "styles.css"
+      "styles/*"
     ],
-    "matches": ["*://*.kick.com/*"]
+    "matches": ["https://kick.com/*"]
   }],
+  "externally_connectable": {
+    "matches": ["https://isolmaz.github.io/betterkickchat/*"]
+  },
   "oauth2": {
     "client_id": "01JMMTMR9N6Q1R9FBP8P20MZDZ",
     "scopes": [

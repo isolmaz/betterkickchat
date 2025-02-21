@@ -1,109 +1,74 @@
 import { kickApi } from '../api/kickApi';
-import { ChatWebSocketManager } from './websocketManager';
-import { ChatMessage, ChatroomState, Channel } from '../api/types';
+import { KickChannel, ChatroomState } from '../api/types';
+import { ChatWebSocketManager, ChatEventHandlers } from './websocketManager';
 
 export class ChatService {
-  private webSocket: ChatWebSocketManager;
-  private currentChannel: Channel | null = null;
-  private messageHandlers: ((message: ChatMessage) => void)[] = [];
-  private stateHandlers: ((state: ChatroomState) => void)[] = [];
+  public readonly wsManager: ChatWebSocketManager;
+  private currentChannel: KickChannel | null = null;
+  private chatroomState: ChatroomState | null = null;
 
-  constructor() {
-    this.webSocket = new ChatWebSocketManager({
-      onMessage: this.handleIncomingMessage.bind(this),
-      onError: this.handleError.bind(this),
-      onReconnect: this.handleReconnect.bind(this),
-    });
+  constructor(handlers: ChatEventHandlers = {}) {
+    this.wsManager = new ChatWebSocketManager(handlers);
   }
 
-  async connectToChannel(channelName: string): Promise<void> {
+  async connectToChannel(channel: KickChannel): Promise<void> {
     try {
-      // Get channel information
-      const channel = await kickApi.getChannel(channelName);
-      this.currentChannel = channel;
+      this.currentChannel = {
+        ...channel,
+        followers_count: channel.followers_count || 0
+      };
 
       // Get initial chatroom state
       const chatroomState = await kickApi.getChatroomState(channel.id);
-      this.notifyStateHandlers(chatroomState);
+      this.chatroomState = chatroomState;
 
-      // Connect to WebSocket
-      this.webSocket.connect(channel.id);
+      // Connect WebSocket
+      this.wsManager.connect(channel.id);
     } catch (error) {
-      console.error('Error connecting to channel:', error);
-      throw error;
-    }
-  }
-
-  async sendMessage(content: string): Promise<void> {
-    if (!this.currentChannel) {
-      throw new Error('Not connected to any channel');
-    }
-
-    try {
-      // Send through REST API
-      await kickApi.sendChatMessage(this.currentChannel.id, content);
-      
-      // Also send through WebSocket for immediate feedback
-      this.webSocket.sendMessage(content);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      throw error;
-    }
-  }
-
-  onMessage(handler: (message: ChatMessage) => void): () => void {
-    this.messageHandlers.push(handler);
-    return () => {
-      this.messageHandlers = this.messageHandlers.filter(h => h !== handler);
-    };
-  }
-
-  onStateChange(handler: (state: ChatroomState) => void): () => void {
-    this.stateHandlers.push(handler);
-    return () => {
-      this.stateHandlers = this.stateHandlers.filter(h => h !== handler);
-    };
-  }
-
-  private handleIncomingMessage(message: ChatMessage): void {
-    this.messageHandlers.forEach(handler => {
-      try {
-        handler(message);
-      } catch (error) {
-        console.error('Error in message handler:', error);
-      }
-    });
-  }
-
-  private notifyStateHandlers(state: ChatroomState): void {
-    this.stateHandlers.forEach(handler => {
-      try {
-        handler(state);
-      } catch (error) {
-        console.error('Error in state handler:', error);
-      }
-    });
-  }
-
-  private handleError(error: Error): void {
-    console.error('Chat service error:', error);
-    // Implement error handling strategy (e.g., show user notification)
-  }
-
-  private async handleReconnect(): Promise<void> {
-    if (this.currentChannel) {
-      try {
-        const chatroomState = await kickApi.getChatroomState(this.currentChannel.id);
-        this.notifyStateHandlers(chatroomState);
-      } catch (error) {
-        console.error('Error fetching chatroom state after reconnect:', error);
-      }
+      console.error('Failed to connect to channel:', error);
+      throw error instanceof Error ? error : new Error('Failed to connect to channel');
     }
   }
 
   disconnect(): void {
-    this.webSocket.disconnect();
+    this.wsManager.disconnect();
     this.currentChannel = null;
+    this.chatroomState = null;
+  }
+
+  async sendMessage(content: string): Promise<void> {
+    if (!this.currentChannel) {
+      throw new Error('Not connected to a channel');
+    }
+
+    try {
+      await kickApi.sendChatMessage(this.currentChannel.id, content);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      throw error instanceof Error ? error : new Error('Failed to send message');
+    }
+  }
+
+  getCurrentChannel(): KickChannel | null {
+    return this.currentChannel;
+  }
+
+  getChatroomState(): ChatroomState | null {
+    return this.chatroomState;
+  }
+
+  async refreshChatroomState(): Promise<void> {
+    if (!this.currentChannel) {
+      throw new Error('Not connected to a channel');
+    }
+
+    try {
+      const chatroomState = await kickApi.getChatroomState(this.currentChannel.id);
+      this.chatroomState = chatroomState;
+    } catch (error) {
+      console.error('Failed to refresh chatroom state:', error);
+      throw error instanceof Error ? error : new Error('Failed to refresh chatroom state');
+    }
   }
 }
 

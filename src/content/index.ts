@@ -1,3 +1,6 @@
+import '../styles/global.css';
+import '../styles/chat.css';
+
 interface Settings {
   fontSize: number;
   compactMode: boolean;

@@ -1,8 +1,9 @@
 // Import Chrome types
 /// <reference types="chrome"/>
 
+import { KickApi } from '../services/api/kickApi';
+
 // Constants
-const KICK_API_BASE = 'https://kick.com/api/v2';
 const HEARTBEAT_INTERVAL = 20000;
 
 // Service worker state
@@ -95,10 +96,6 @@ function handleMessage(
       handleSettingsUpdate(message.settings, sender.tab?.id, sendResponse);
       return true;
 
-    case 'OAUTH_CALLBACK':
-      handleOAuthCallback(message.code, sendResponse);
-      return true;
-
     case 'CHAT_MESSAGE':
       handleChatMessage(message, sendResponse);
       return true;
@@ -109,75 +106,41 @@ function handleMessage(
   }
 }
 
-// Handle OAuth callback
-async function handleOAuthCallback(code: string, sendResponse: (response: any) => void) {
-  try {
-    console.log('[Better Kick Chat] Processing OAuth callback');
-
-    // Exchange code for access token using Kick's OAuth 2.1 endpoint
-    const response = await fetch(`${KICK_API_BASE}/oauth/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        grant_type: 'authorization_code',
-        client_id: process.env.KICK_CLIENT_ID,
-        client_secret: process.env.KICK_CLIENT_SECRET,
-        code,
-        redirect_uri: 'https://isolmaz.github.io/betterkickchat/oauth-callback.html',
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OAuth token exchange failed: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    // Verify token using Kick's introspection endpoint
-    const introspectResponse = await fetch(`${KICK_API_BASE}/token/introspect`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${data.access_token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!introspectResponse.ok) {
-      throw new Error('Token validation failed');
-    }
-
-    // Save the validated token
-    await chrome.storage.local.set({
-      auth: {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: Date.now() + (data.expires_in * 1000),
-        scopes: data.scope.split(' '),
-      },
-    });
-
-    console.log('[Better Kick Chat] Auth data saved');
-    sendResponse({ success: true });
-  } catch (error: unknown) {
-    console.error('[Better Kick Chat] OAuth error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    sendResponse({ success: false, error: errorMessage });
-  }
-}
-
 // Handle chat messages
 async function handleChatMessage(message: any, sendResponse: (response: any) => void) {
   try {
-    const { channels } = await chrome.storage.local.get(['channels']);
-    const settings = channels?.[message.channelId] || {};
-    console.log('[Better Kick Chat] Channel settings:', settings);
+    const { token } = await chrome.storage.sync.get(['token']);
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
 
-    sendResponse({ action: 'show' });
+    // Send chat message using Kick API
+    if (message.content) {
+      const response = await fetch(`${KickApi.API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: message.content,
+          channel_id: message.channelId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to send message');
+      }
+    }
+
+    sendResponse({ success: true });
   } catch (error) {
     console.error('[Better Kick Chat] Chat message handler error:', error);
-    sendResponse({ action: 'show' });
+    sendResponse({ 
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send message'
+    });
   }
 }
 

@@ -1,135 +1,105 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Box, Paper, Typography, CircularProgress } from '@mui/material';
-import { styled } from '@mui/material/styles';
-import { ChatMessage } from './ChatMessage';
-import { ChatInput } from './ChatInput';
-import { chatService } from '../../services/chat/chatService';
-import { ChatMessage as ChatMessageType, ChatroomState } from '../../services/api/types';
+import { useEffect, useState, useCallback } from 'react';
+import { kickApi } from '../../services/api/kickApi';
+import { KickChannel, KickChatMessage } from '../../services/api/types';
+import ChatMessageList from './ChatMessageList';
+import ChatInput from './ChatInput';
+import ChatSettings from './ChatSettings';
+import { useSettings } from '../../hooks/useSettings';
 
-const Container = styled(Paper)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  height: '100%',
-  backgroundColor: theme.palette.background.paper,
-}));
-
-const MessageList = styled(Box)(({ theme }) => ({
-  flexGrow: 1,
-  overflowY: 'auto',
-  padding: theme.spacing(2),
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(1),
-}));
-
-const LoadingContainer = styled(Box)({
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  height: '100%',
-});
-
-interface Props {
+interface ChatContainerProps {
   channelName: string;
-  onError?: (error: Error) => void;
+  onError: (error: Error) => void;
 }
 
-export const ChatContainer: React.FC<Props> = ({ channelName, onError }) => {
-  const [messages, setMessages] = useState<ChatMessageType[]>([]);
-  const [isConnecting, setIsConnecting] = useState(true);
-  const [chatroomState, setChatroomState] = useState<ChatroomState | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+export default function ChatContainer({ channelName, onError }: ChatContainerProps) {
+  const [channel, setChannel] = useState<KickChannel | null>(null);
+  const [chatSocket, setChatSocket] = useState<WebSocket | null>(null);
+  const [messages, setMessages] = useState<KickChatMessage[]>([]);
+  const { settings, updateSettings } = useSettings();
+  const [isConnected, setIsConnected] = useState(false);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const connectToChat = useCallback((channelId: number) => {
+    const ws = new WebSocket(`wss://ws-us2.pusher.com/app/eb1d5f283081a78b932c?protocol=7&client=js&version=7.0.2&flash=false`);
+    
+    ws.onopen = () => {
+      console.log('Connected to chat websocket');
+      ws.send(JSON.stringify({
+        event: 'pusher:subscribe',
+        data: { channel: `chatrooms.${channelId}.v2` }
+      }));
+      setIsConnected(true);
+    };
 
-  useEffect(() => {
-    const connectToChat = async () => {
-      try {
-        await chatService.connectToChannel(channelName);
-        setIsConnecting(false);
-      } catch (error) {
-        console.error('Failed to connect to chat:', error);
-        onError?.(error as Error);
-        setIsConnecting(false);
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.event === 'App\\Events\\ChatMessageEvent') {
+        const message = JSON.parse(data.data) as KickChatMessage;
+        setMessages(prev => [...prev, message]);
       }
     };
 
-    const messageHandler = (message: ChatMessageType) => {
-      setMessages(prev => [...prev, message]);
-      scrollToBottom();
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      onError(new Error('Chat connection error'));
+      setIsConnected(false);
     };
 
-    const stateHandler = (state: ChatroomState) => {
-      setChatroomState(state);
+    ws.onclose = () => {
+      setIsConnected(false);
     };
 
-    // Subscribe to chat events
-    const unsubscribeMessage = chatService.onMessage(messageHandler);
-    const unsubscribeState = chatService.onStateChange(stateHandler);
+    setChatSocket(ws);
+  }, [onError]);
 
-    // Connect to chat
-    connectToChat();
+  useEffect(() => {
+    const loadChannel = async () => {
+      try {
+        const channel = await kickApi.getChannel(channelName);
+        setChannel(channel);
 
-    // Cleanup
+        // Connect to chat if there's an active livestream
+        if (channel.livestream) {
+          connectToChat(channel.id);
+        }
+      } catch (error) {
+        console.error('Error loading channel:', error);
+        onError(error instanceof Error ? error : new Error('Failed to load channel'));
+      }
+    };
+
+    if (channelName) {
+      loadChannel();
+    }
+
     return () => {
-      unsubscribeMessage();
-      unsubscribeState();
-      chatService.disconnect();
+      if (chatSocket) {
+        chatSocket.close();
+      }
     };
-  }, [channelName, onError]);
+  }, [channelName, connectToChat]);
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!channel) return;
+    
     try {
-      await chatService.sendMessage(content);
+      await kickApi.sendChatMessage(channel.id, content);
     } catch (error) {
       console.error('Failed to send message:', error);
-      onError?.(error as Error);
+      onError(error instanceof Error ? error : new Error('Failed to send message'));
     }
-  };
-
-  const handleUsernameClick = (username: string) => {
-    // Implement user profile view or actions
-    console.log('Username clicked:', username);
-  };
-
-  if (isConnecting) {
-    return (
-      <Container>
-        <LoadingContainer>
-          <CircularProgress />
-        </LoadingContainer>
-      </Container>
-    );
-  }
+  }, [channel, onError]);
 
   return (
-    <Container>
-      {chatroomState?.slow_mode && (
-        <Typography variant="caption" color="warning.main" sx={{ p: 1 }}>
-          Slow mode is enabled ({chatroomState.message_interval}s)
-        </Typography>
-      )}
-      <MessageList>
-        {messages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            message={message}
-            onUsernameClick={handleUsernameClick}
-          />
-        ))}
-        <div ref={messagesEndRef} />
-      </MessageList>
-      <ChatInput
+    <div className="flex flex-col h-screen bg-gray-900 text-white">
+      <ChatMessageList messages={messages} />
+      <ChatInput 
         onSendMessage={handleSendMessage}
-        disabled={isConnecting}
-        placeholder={
-          chatroomState?.subscribers_mode
-            ? 'Only subscribers can chat...'
-            : 'Type a message...'
-        }
+        disabled={!isConnected || !channel}
       />
-    </Container>
+      <ChatSettings 
+        settings={settings}
+        onSettingsChange={updateSettings}
+      />
+    </div>
   );
-}; 
+} 

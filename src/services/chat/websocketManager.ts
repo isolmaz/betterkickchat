@@ -1,7 +1,7 @@
 import { ChatMessage } from '../api/types';
-import { kickApi } from '../api/kickApi';
+import { KickApi } from '../api/kickApi';
 
-interface ChatEventHandlers {
+export interface ChatEventHandlers {
   onMessage?: (message: ChatMessage) => void;
   onSubscription?: (data: any) => void;
   onFollow?: (data: any) => void;
@@ -15,12 +15,19 @@ export class ChatWebSocketManager {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectTimeout: number = 1000; // Start with 1 second
+  private handlers: ChatEventHandlers;
 
-  constructor(private handlers: ChatEventHandlers = {}) {}
+  constructor(handlers: ChatEventHandlers = {}) {
+    this.handlers = handlers;
+  }
+
+  setHandlers(handlers: ChatEventHandlers): void {
+    this.handlers = handlers;
+  }
 
   connect(channelId: number): void {
     this.channelId = channelId;
-    const url = kickApi.getChatWebsocketUrl(channelId);
+    const url = KickApi.getChatWebsocketUrl(channelId);
     
     try {
       this.ws = new WebSocket(url);
@@ -31,13 +38,21 @@ export class ChatWebSocketManager {
     }
   }
 
+  disconnect(): void {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.channelId = null;
+    this.reconnectAttempts = 0;
+  }
+
   private setupEventListeners(): void {
     if (!this.ws) return;
 
     this.ws.onopen = () => {
       console.log('WebSocket connected');
       this.reconnectAttempts = 0;
-      this.reconnectTimeout = 1000;
     };
 
     this.ws.onmessage = (event) => {
@@ -51,54 +66,52 @@ export class ChatWebSocketManager {
 
     this.ws.onclose = () => {
       console.log('WebSocket closed');
-      this.attemptReconnect();
+      this.handleReconnect();
     };
 
-    this.ws.onerror = (event) => {
-      console.error('WebSocket error:', event);
+    this.ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
       this.handleError(new Error('WebSocket connection error'));
     };
   }
 
   private handleMessage(data: any): void {
     switch (data.event) {
-      case 'chat_message':
-        this.handlers.onMessage?.(data.message);
+      case 'message':
+        this.handlers.onMessage?.(data.data);
         break;
       case 'subscription':
-        this.handlers.onSubscription?.(data);
+        this.handlers.onSubscription?.(data.data);
         break;
       case 'follow':
-        this.handlers.onFollow?.(data);
+        this.handlers.onFollow?.(data.data);
         break;
       default:
-        console.log('Unhandled message type:', data.event);
+        console.log('Unhandled event type:', data.event);
     }
   }
 
   private handleError(error: Error): void {
     this.handlers.onError?.(error);
-    this.attemptReconnect();
+    this.handleReconnect();
   }
 
-  private attemptReconnect(): void {
+  private handleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached');
       return;
     }
 
+    this.reconnectAttempts++;
+    const timeout = this.reconnectTimeout * Math.pow(2, this.reconnectAttempts - 1);
+
+    console.log(`Attempting to reconnect in ${timeout}ms (attempt ${this.reconnectAttempts})`);
     setTimeout(() => {
-      console.log(`Attempting to reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
-      this.reconnectAttempts++;
-      this.handlers.onReconnect?.();
-      
       if (this.channelId) {
         this.connect(this.channelId);
+        this.handlers.onReconnect?.();
       }
-      
-      // Exponential backoff
-      this.reconnectTimeout *= 2;
-    }, this.reconnectTimeout);
+    }, timeout);
   }
 
   sendMessage(content: string): void {
@@ -110,12 +123,5 @@ export class ChatWebSocketManager {
       event: 'chat_message',
       data: { content }
     }));
-  }
-
-  disconnect(): void {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
   }
 } 

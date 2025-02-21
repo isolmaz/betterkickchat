@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Better Kick Chat - OAuth Callback</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .container {
+      background-color: #1E1E1E;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+      width: 100%;
+    }
+
+    h1 {
+      color: #00CCBB;
+      margin-bottom: 1rem;
+    }
+
+    p {
+      color: #B0B0B0;
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+
+    .status {
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+
+    .success {
+      color: #4CAF50;
+    }
+
+    .error {
+      color: #F44336;
+    }
+
+    .retry-button {
+      background-color: #9146FF;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+
+    .retry-button:hover {
+      background-color: #7a2bff;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Better Kick Chat</h1>
+    <div id="status" class="status">Completing authentication...</div>
+    <p id="message">Please wait while we complete the authentication process.</p>
+    <button id="retryButton" class="retry-button hidden" onclick="retryAuth()">
+      Try Again
+    </button>
+  </div>
+
+  <script>
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000;
+
+    function retryAuth() {
+      const button = document.getElementById('retryButton');
+      button.classList.add('hidden');
+      
+      const statusElement = document.getElementById('status');
+      const messageElement = document.getElementById('message');
+      
+      statusElement.textContent = 'Retrying authentication...';
+      statusElement.classList.remove('error');
+      messageElement.textContent = 'Please wait while we try again...';
+      
+      handleAuth();
+    }
+
+    function handleAuth() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+      const error = urlParams.get('error');
+      const statusElement = document.getElementById('status');
+      const messageElement = document.getElementById('message');
+      const retryButton = document.getElementById('retryButton');
+
+      if (error) {
+        statusElement.textContent = 'Authentication Failed';
+        statusElement.classList.add('error');
+        messageElement.textContent = 'There was an error during authentication: ' + error;
+        retryButton.classList.remove('hidden');
+        return;
+      }
+
+      if (!code || !state) {
+        statusElement.textContent = 'Invalid Request';
+        statusElement.classList.add('error');
+        messageElement.textContent = 'Missing required authentication parameters.';
+        retryButton.classList.remove('hidden');
+        return;
+      }
+
+      // Send message to our extension
+      chrome.runtime.sendMessage('ibiejdaaejaihgaefdbcbfeafcffddcf', {
+        type: 'OAUTH_CALLBACK',
+        code,
+        state,
+        source: 'github_pages'
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Chrome runtime error:', chrome.runtime.lastError);
+          if (retryCount < MAX_RETRIES) {
+            retryCount++;
+            setTimeout(handleAuth, RETRY_DELAY);
+            return;
+          }
+          statusElement.textContent = 'Connection Error';
+          statusElement.classList.add('error');
+          messageElement.textContent = 'Could not connect to the extension. Please make sure the extension is installed and try again.';
+          retryButton.classList.remove('hidden');
+          return;
+        }
+
+        if (response?.success) {
+          statusElement.textContent = 'Authentication Successful';
+          statusElement.classList.add('success');
+          messageElement.textContent = 'You can now close this window and return to Kick.com.';
+          
+          // Close the window after 3 seconds
+          setTimeout(() => {
+            window.close();
+          }, 3000);
+        } else {
+          statusElement.textContent = 'Authentication Failed';
+          statusElement.classList.add('error');
+          messageElement.textContent = 'Failed to complete authentication. Please try again.';
+          retryButton.classList.remove('hidden');
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', handleAuth);
+  </script>
+</body>
+</html> 

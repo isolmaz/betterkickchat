@@ -1,5 +1,16 @@
-import { KickUser, Channel, ChatMessage, ChatroomState } from './types';
+import {
+  KickResponse,
+  KickUser,
+  KickChannel,
+  KickChatMessage,
+  KickOAuthToken,
+  KickTokenIntrospection,
+  KickCategory,
+  ChatroomState
+} from './types';
 
+// Updated API endpoints according to Kick documentation
+const AUTH_BASE_URL = 'https://kick.com/oauth';
 const API_BASE_URL = 'https://kick.com/api/v2';
 
 class KickApiError extends Error {
@@ -13,41 +24,39 @@ async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     throw new KickApiError(response.status, await response.text());
   }
-  return response.json();
+  const result: KickResponse<T> = await response.json();
+  return result.data;
 }
 
 export class KickApi {
-  private accessToken: string | null = null;
+  private accessToken: string = '';
 
-  constructor(private clientId: string, private clientSecret: string) {}
+  // Make base URLs accessible
+  static readonly AUTH_BASE_URL = AUTH_BASE_URL;
+  static readonly API_BASE_URL = API_BASE_URL;
 
-  async authenticate(): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/oauth/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        grant_type: 'client_credentials',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-      }),
-    });
+  constructor() {}
 
-    const data = await handleResponse<{ access_token: string }>(response);
-    this.accessToken = data.access_token;
+  // Getter for access token
+  getAccessToken(): string | null {
+    return this.accessToken;
+  }
+
+  setAccessToken(token: string) {
+    this.accessToken = token;
   }
 
   private async fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    if (!this.accessToken) {
-      await this.authenticate();
+    const token = this.getAccessToken();
+    if (!token) {
+      throw new Error('Not authenticated');
     }
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
         ...options.headers,
-        'Authorization': `Bearer ${this.accessToken}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
@@ -64,13 +73,28 @@ export class KickApi {
     return this.fetchWithAuth<KickUser>(`/users/${username}`);
   }
 
-  // Channel endpoints
-  async getChannel(channelName: string): Promise<Channel> {
-    return this.fetchWithAuth<Channel>(`/channels/${channelName}`);
+  // Public endpoints that don't require authentication
+  async checkChannelExists(channelName: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/channels/${channelName}`);
+      if (response.ok) {
+        const data = await response.json();
+        return !!data;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking channel:', error);
+      return false;
+    }
   }
 
-  async getFollowedChannels(): Promise<Channel[]> {
-    return this.fetchWithAuth<Channel[]>('/channels/followed');
+  // Channel endpoints that require auth
+  async getChannel(channelName: string): Promise<KickChannel> {
+    return this.fetchWithAuth<KickChannel>(`/channels/${channelName}`);
+  }
+
+  async getFollowedChannels(): Promise<KickChannel[]> {
+    return this.fetchWithAuth<KickChannel[]>('/channels/followed');
   }
 
   // Chatroom endpoints
@@ -78,21 +102,68 @@ export class KickApi {
     return this.fetchWithAuth<ChatroomState>(`/channels/${channelId}/chatroom`);
   }
 
-  async sendChatMessage(channelId: number, content: string): Promise<ChatMessage> {
-    return this.fetchWithAuth<ChatMessage>(`/channels/${channelId}/chat`, {
+  // Category endpoints
+  async getCategories(): Promise<KickCategory[]> {
+    return this.fetchWithAuth<KickCategory[]>('/categories');
+  }
+
+  async getCategory(id: number): Promise<KickCategory> {
+    return this.fetchWithAuth<KickCategory>(`/categories/${id}`);
+  }
+
+  // Chat endpoints
+  async sendChatMessage(channelId: number, content: string): Promise<KickChatMessage> {
+    return this.fetchWithAuth<KickChatMessage>('/chat', {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ channel_id: channelId, content }),
     });
   }
 
-  // Websocket connection URL
-  getChatWebsocketUrl(channelId: number): string {
-    return `wss://ws-us2.pusher.com/app/${this.clientId}/channel-${channelId}`;
+  // OAuth helpers
+  static async exchangeCode(
+    code: string,
+    redirectUri: string,
+    codeVerifier: string,
+    clientId: string,
+    clientSecret: string
+  ): Promise<KickOAuthToken> {
+    const response = await fetch(`${AUTH_BASE_URL}/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
+      }).toString()
+    });
+
+    return handleResponse<KickOAuthToken>(response);
+  }
+
+  static async introspectToken(token: string): Promise<KickTokenIntrospection> {
+    const response = await fetch(`${AUTH_BASE_URL}/token/introspect`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      }
+    });
+
+    return handleResponse<KickTokenIntrospection>(response);
+  }
+
+  // WebSocket connection URL
+  static getChatWebsocketUrl(channelId: number): string {
+    return `wss://ws-us2.pusher.com/app/${channelId}`;
   }
 }
 
 // Create and export a singleton instance
-export const kickApi = new KickApi(
-  process.env.KICK_CLIENT_ID!,
-  process.env.KICK_CLIENT_SECRET!
-); 
+export const kickApi = new KickApi(); 

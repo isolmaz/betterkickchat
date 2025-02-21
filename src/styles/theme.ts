@@ -67,6 +67,46 @@ const baseTheme = createTheme({
     borderRadius: 8,
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        ':root': {
+          // Theme colors
+          '--primary': '#00CCBB',
+          '--primary-light': '#33D6C7',
+          '--primary-dark': '#008E82',
+          '--secondary': '#9146FF',
+          '--background': '#121212',
+          '--surface': '#1E1E1E',
+          '--border': '#333333',
+          '--text-primary': '#FFFFFF',
+          '--text-secondary': '#B0B0B0',
+          '--message-hover': '#2A2A2A',
+          '--username-primary': '#00CCBB',
+          '--username-secondary': '#9146FF',
+          '--input-background': '#2A2A2A',
+          '--warning-background': 'rgba(255, 152, 0, 0.1)',
+          '--warning-text': '#FF9800',
+        },
+        body: {
+          backgroundColor: 'var(--background)',
+          color: 'var(--text-primary)',
+          scrollbarColor: '#666666 #1E1E1E',
+          '&::-webkit-scrollbar, & *::-webkit-scrollbar': {
+            width: '8px',
+            height: '8px',
+          },
+          '&::-webkit-scrollbar-thumb, & *::-webkit-scrollbar-thumb': {
+            borderRadius: 8,
+            backgroundColor: '#666666',
+            minHeight: 24,
+          },
+          '&::-webkit-scrollbar-track, & *::-webkit-scrollbar-track': {
+            borderRadius: 8,
+            backgroundColor: '#1E1E1E',
+          },
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {
@@ -94,27 +134,4 @@ const baseTheme = createTheme({
   },
 });
 
-export const theme: Theme = createTheme(baseTheme, {
-  components: {
-    MuiCssBaseline: {
-      styleOverrides: {
-        body: {
-          scrollbarColor: '#666666 #1E1E1E',
-          '&::-webkit-scrollbar, & *::-webkit-scrollbar': {
-            width: '8px',
-            height: '8px',
-          },
-          '&::-webkit-scrollbar-thumb, & *::-webkit-scrollbar-thumb': {
-            borderRadius: 8,
-            backgroundColor: '#666666',
-            minHeight: 24,
-          },
-          '&::-webkit-scrollbar-track, & *::-webkit-scrollbar-track': {
-            borderRadius: 8,
-            backgroundColor: '#1E1E1E',
-          },
-        },
-      },
-    },
-  },
-}); 
+export const theme: Theme = baseTheme; 

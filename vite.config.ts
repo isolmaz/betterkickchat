@@ -10,7 +10,8 @@ const copyAssets = () => ({
     // Create necessary directories
     const dirs = [
       'dist/assets',
-      'dist/assets/icons'
+      'dist/assets/icons',
+      'dist/styles'
     ];
     
     dirs.forEach(dir => {
@@ -23,7 +24,8 @@ const copyAssets = () => ({
     fs.copyFileSync('manifest.json', 'dist/manifest.json');
 
     // Copy styles
-    fs.copyFileSync('src/styles/global.css', 'dist/styles.css');
+    fs.copyFileSync('src/styles/chat.css', 'dist/styles/chat.css');
+    fs.copyFileSync('src/styles/global.css', 'dist/styles/global.css');
 
     // Copy icons
     const iconSizes = [16, 32, 48, 128];
@@ -41,7 +43,8 @@ const copyAssets = () => ({
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Better Kick Chat</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles/global.css">
+  <link rel="stylesheet" href="styles/chat.css">
 </head>
 <body>
   <div id="root"></div>
@@ -77,7 +80,12 @@ export default defineConfig({
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
-        assetFileNames: '[name].[ext]'
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name.endsWith('.css')) {
+            return 'styles/[name][extname]';
+          }
+          return '[name][extname]';
+        }
       }
     },
     cssCodeSplit: false,
