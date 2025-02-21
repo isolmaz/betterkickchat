@@ -6,7 +6,8 @@
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhm6rX8Gt/yCOPKHYLxp/RY6J2mPqKX+dalYqzv0dHnYiWWDlqiAup4Qa/oGCoLrGc5TpvYdPPYGe1btQHIyPGVCWVA7qYBg4QkZwjHh+bOsRMOG3AqMVhIJXE3nkxzMzj5+HaLW1ClqhDLHBHYZ+Kf5MhAFVDXR1+0YGE6XP8GUHUpDxHEUOqwKAQjkQNyaKyYCjZDJbxhUSTYHePfCqIH4RrFVTpHgz3TZeNXhqEKDEh8nLGQZUBCtXxOiXqI9eCDyMlBtZsz1KT+sFYSn/jJw0MC7XxQkxu4oEZd4REHBdXKx4H5qUPfxEwFbY9szFPOhgSz6BQKCV0RFgaqtGQQIDAQAB",
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "webNavigation"
   ],
   "host_permissions": [
     "https://kick.com/*",
