@@ -1,3 +1,6 @@
+// Import Chrome types
+/// <reference types="chrome"/>
+
 // Listen for installation
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('[Better Kick Chat] Extension installed');
@@ -186,29 +189,33 @@ async function handleSettingsUpdate(settings: any, tabId: number | undefined, se
 }
 
 // Listen for navigation to kick.com
-chrome.webNavigation.onCompleted.addListener(
-  async (details) => {
-    // Only handle main frame navigation
-    if (details.frameId === 0) {
-      try {
-        // Wait a bit for the page to be ready
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Check if the tab still exists
-        const tab = await chrome.tabs.get(details.tabId);
-        if (tab.url?.includes('kick.com')) {
-          await chrome.tabs.sendMessage(details.tabId, { type: 'PAGE_LOADED' });
-          console.log('[Kick Chat Enhancer] Notified content script of page load');
+if (chrome.webNavigation) {
+  chrome.webNavigation.onCompleted.addListener(
+    async (details) => {
+      // Only handle main frame navigation
+      if (details.frameId === 0) {
+        try {
+          // Wait a bit for the page to be ready
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Check if the tab still exists
+          const tab = await chrome.tabs.get(details.tabId);
+          if (tab.url?.includes('kick.com')) {
+            await chrome.tabs.sendMessage(details.tabId, { type: 'PAGE_LOADED' });
+            console.log('[Kick Chat Enhancer] Notified content script of page load');
+          }
+        } catch (error) {
+          console.error('[Kick Chat Enhancer] Failed to notify content script:', error);
         }
-      } catch (error) {
-        console.error('[Kick Chat Enhancer] Failed to notify content script:', error);
       }
+    },
+    { 
+      url: [{ hostContains: 'kick.com' }] 
     }
-  },
-  { 
-    url: [{ hostContains: 'kick.com' }] 
-  }
-);
+  );
+} else {
+  console.error('[Kick Chat Enhancer] webNavigation API not available');
+}
 
 // Keep service worker alive
 setInterval(() => {
