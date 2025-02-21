@@ -1,27 +1,104 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Authorization Callback</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Better Kick Chat - OAuth Callback</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .container {
+      background-color: #1E1E1E;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+      width: 100%;
+    }
+
+    h1 {
+      color: #00CCBB;
+      margin-bottom: 1rem;
+    }
+
+    p {
+      color: #B0B0B0;
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+
+    .status {
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+
+    .success {
+      color: #4CAF50;
+    }
+
+    .error {
+      color: #F44336;
+    }
+  </style>
 </head>
 <body>
-    <h1>Authorization Complete</h1>
-    <p>You can close this window now.</p>
-    <script>
-        // Handle the OAuth 2.0 callback
-        const queryParams = new URLSearchParams(window.location.search);
-        const code = queryParams.get('code');
-        
-        if (code) {
-            // Send the authorization code to the extension's background script
-            chrome.runtime.sendMessage({ type: 'OAUTH_CALLBACK', code }, (response) => {
-                // Close the window once the code is processed
-                window.close();
-            });
-        } else {
-            // Handle error case
-            const error = queryParams.get('error');
-            document.body.innerHTML = `<h1>Authorization Error</h1><p>Error: ${error}</p>`;
-        }
-    </script>
+  <div class="container">
+    <h1>Better Kick Chat</h1>
+    <div id="status" class="status">Completing authentication...</div>
+    <p id="message">Please wait while we complete the authentication process.</p>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const error = urlParams.get('error');
+      const statusElement = document.getElementById('status');
+      const messageElement = document.getElementById('message');
+
+      if (error) {
+        statusElement.textContent = 'Authentication Failed';
+        statusElement.classList.add('error');
+        messageElement.textContent = 'There was an error during authentication. Please try again.';
+        return;
+      }
+
+      if (code) {
+        // Send the code to the extension
+        chrome.runtime.sendMessage({ type: 'OAUTH_CALLBACK', code }, (response) => {
+          if (response?.success) {
+            statusElement.textContent = 'Authentication Successful';
+            statusElement.classList.add('success');
+            messageElement.textContent = 'You can now close this window and return to Kick.com.';
+            
+            // Close the window after 3 seconds
+            setTimeout(() => {
+              window.close();
+            }, 3000);
+          } else {
+            statusElement.textContent = 'Authentication Failed';
+            statusElement.classList.add('error');
+            messageElement.textContent = 'Failed to complete authentication. Please try again.';
+          }
+        });
+      } else {
+        statusElement.textContent = 'Invalid Request';
+        statusElement.classList.add('error');
+        messageElement.textContent = 'No authentication code found. Please try again.';
+      }
+    });
+  </script>
 </body>
 </html> 
