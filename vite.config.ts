@@ -23,7 +23,7 @@ const copyAssets = () => ({
     fs.copyFileSync('manifest.json', 'dist/manifest.json');
 
     // Copy styles
-    fs.copyFileSync('src/styles.css', 'dist/styles.css');
+    fs.copyFileSync('src/styles/global.css', 'dist/styles.css');
 
     // Copy icons
     const iconSizes = [16, 32, 48, 128];
@@ -40,7 +40,7 @@ const copyAssets = () => ({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kick Chat Enhancer</title>
+  <title>Better Kick Chat</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>

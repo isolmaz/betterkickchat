@@ -36,12 +36,11 @@ const Username = styled(Typography)(({ theme }) => ({
 const MessageContent = styled(Typography)({
   wordBreak: 'break-word',
   whiteSpace: 'pre-wrap',
-});
-
-const EmoteImg = styled('img')({
-  verticalAlign: 'middle',
-  margin: '0 2px',
-  height: '24px',
+  '& img.emote': {
+    verticalAlign: 'middle',
+    margin: '0 2px',
+    height: '24px',
+  },
 });
 
 interface Props {
